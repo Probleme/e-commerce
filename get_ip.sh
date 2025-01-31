@@ -13,8 +13,10 @@ get_ip_linux() {
 # Determine the operating system and get the IP address
 if [[ "$OSTYPE" == "darwin"* ]]; then
     ip=$(get_ip_macos)
+    sed_command="sed -i ''"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     ip=$(get_ip_linux)
+    sed_command="sed -i"
 else
     echo "Unsupported OS type: $OSTYPE"
     exit 1
@@ -22,7 +24,7 @@ fi
 
 # Remove existing HOST_IP line if it exists
 if [ -f .env ]; then
-    sed -i '' '/^HOST_IP=/d' .env
+    $sed_command '/^HOST_IP=/d' .env
     
     # Add newline if file doesn't end with one
     if [ -s .env ] && [ "$(tail -c1 .env)" != "" ]; then

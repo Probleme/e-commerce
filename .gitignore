@@ -1,14 +1,8 @@
 # backend
-.env
 .venv
 backend/__pycache__
 backend/migrations
 backend/static
 backend/media
-
-# frontend
-frontend/node_modules
-frontend/build
-frontend/.env
-frontend/.env.local
+backend/db.sqlite3
 
