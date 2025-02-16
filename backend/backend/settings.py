@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,10 +42,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework', # REST framework
+    # 'rest_framework_simplejwt', # JWT token authentication
+    # 'rest_framework_simplejwt.token_blacklist',
     'app',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -143,5 +149,22 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOWED_ORIGINS = [
+    f"http://{HOST_IP}:8002",
+    f"http://{LOCAL_IP}:8002",
+    f"http://{LOCAL_DOMAIN}:8002",
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'app.authentication.JWTAuthentication',
+    ],
+}
+
+# JWT settings
+JWT_SECRET_KEY = 'django-insecure-%s&3=p1=z(e2om6-g*!d$646wk%*9%-!sw+76_sn^+orycc=!7'
+JWT_ACCESS_TOKEN_LIFETIME = timedelta(hours=1)
+JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=1)

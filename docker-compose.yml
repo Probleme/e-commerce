@@ -46,6 +46,9 @@ services:
       - /app/node_modules
     ports:
       - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
     restart: always
