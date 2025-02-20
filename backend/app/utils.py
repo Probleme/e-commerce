@@ -1,3 +1,4 @@
+# app/utils.py
 from django.conf import settings
 import jwt
 from datetime import datetime, timedelta, timezone
