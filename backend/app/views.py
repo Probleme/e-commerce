@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
 from .serializers import UserSerializer, RegisterSerializer
-from .utils import generate_access_token, generate_refresh_token
+from .utils import generate_access_token, generate_refresh_token, verify_access_token
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -16,11 +16,47 @@ from rest_framework.parsers import MultiPartParser, FormParser
 User = get_user_model()
 
 class UserView(APIView):
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
-    
+    permission_classes = []
+    authentication_classes = []
     def get(self, request):
-       return Response("Success", status=status.HTTP_200_OK)
+        try:
+            # Get access token from cookies
+            access_token = request.COOKIES.get('access_token')
+            
+            if not access_token:
+                return Response({
+                    'error': 'No access token provided'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Verify the access token and get user_id
+            user_id = verify_access_token(access_token)
+            
+            if not user_id:
+                return Response({
+                    'error': 'Invalid or expired token'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Get user from database
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response({
+                    'error': 'User not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Check if user is active
+            if not user.is_active:
+                return Response({
+                    'error': 'User account is disabled'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Return user data
+            return Response(UserSerializer(user).data)
+            
+        except Exception as e:
+            return Response({
+                'error': 'Authentication failed'
+            }, status=status.HTTP_401_UNAUTHORIZED)
         
     
 class RegisterView(APIView):
@@ -47,42 +83,53 @@ class LoginView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        email = request.data.get('email')
-        password = request.data.get('password')
-        
-        user = authenticate(email=email, password=password)
-        
-        if user is not None:
-            if user.is_active:
-                access_token = generate_access_token(user)
-                refresh_token = generate_refresh_token(user)
-                response = Response({
-                    'message' : 'Login successful',
-                    'user' : UserSerializer(user).data
-                })
-                response.set_cookie(
-                    'access_token',
-                    access_token,
-                    httponly=True,
-                    samesite='Lax',
-                    max_age=3600 # 1 hour
-                )
-                response.set_cookie(
-                    'refresh_token',
-                    refresh_token,
-                    httponly=True,
-                    samesite='Lax',
-                    max_age=3600 * 24 * 1 # 1 day
-                )
-                return response
+        try:
+            email = request.data.get('email')
+            password = request.data.get('password')
+            
+            if not email or not password:
+                return Response({
+                    'error': 'Email and password are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            user = authenticate(email=email, password=password)
+            
+            if user is not None:
+                if user.is_active:
+                    access_token = generate_access_token(user)
+                    refresh_token = generate_refresh_token(user)
+                    response = Response({
+                        'message': 'Login successful',
+                        'user': UserSerializer(user).data
+                    })
+                    response.set_cookie(
+                        'access_token',
+                        access_token,
+                        httponly=True,
+                        samesite='Lax',
+                        max_age=3600  # 1 hour
+                    )
+                    response.set_cookie(
+                        'refresh_token',
+                        refresh_token,
+                        httponly=True,
+                        samesite='Lax',
+                        max_age=3600 * 24  # 1 day
+                    )
+                    return response
+                else:
+                    return Response({
+                        'error': 'Account is disabled'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
             else:
                 return Response({
-                    'error' : 'Account is disabled'
+                    'error': 'Invalid email or password'
                 }, status=status.HTTP_401_UNAUTHORIZED)
-        else:
+                
+        except Exception as e:
             return Response({
-                'error' : 'Invalid credentials'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+                'error': 'An error occurred during login. Please try again.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -92,7 +139,6 @@ class LogoutView(APIView):
         response = Response()
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
-        response.delete_cookie('logged_in')
         response.data = {
             'message' : 'Logout successful'
         }

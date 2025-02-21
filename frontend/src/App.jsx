@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { AuthProvider } from './contexts/AuthContext';
 import { AuthLayout } from './components/AuthLayout';
-// import ProtectedRoute from './components/ProtecteRoute';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -42,6 +41,12 @@ const App = () => {
             draggable
             pauseOnHover
             theme="light"
+            // Add these for better styling
+            limit={3}
+            toastStyle={{
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
           />
         </div>
       </AuthProvider>

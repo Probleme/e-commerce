@@ -1,12 +1,15 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export const AuthLayout = ({ children }) => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
-      window.location.href = '/login';
+      // window.location.href = '/login';
+      navigate('/login');
     }
   }, [user, loading]);
 
