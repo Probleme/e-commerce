@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import axios from '../lib/axios';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify'; // Correct import syntax
 
 const Register = () => {
   const navigate = useNavigate();
@@ -69,45 +69,50 @@ const Register = () => {
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  // const validateForm = () => {
+  //   const newErrors = {};
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
+  //   if (!formData.email) {
+  //     newErrors.email = 'Email is required';
+  //   } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+  //     newErrors.email = 'Please enter a valid email address';
+  //   }
 
-    if (!formData.username) {
-      newErrors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters long';
-    }
+  //   if (!formData.username) {
+  //     newErrors.username = 'Username is required';
+  //   } else if (formData.username.length < 3) {
+  //     newErrors.username = 'Username must be at least 3 characters long';
+  //   }
 
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters long';
-    }
+  //   if (!formData.password) {
+  //     newErrors.password = 'Password is required';
+  //   } else if (formData.password.length < 8) {
+  //     newErrors.password = 'Password must be at least 8 characters long';
+  //   }
 
-    if (!formData.password2) {
-      newErrors.password2 = 'Please confirm your password';
-    } else if (formData.password !== formData.password2) {
-      newErrors.password2 = 'Passwords do not match';
-    }
+  //   if (!formData.password2) {
+  //     newErrors.password2 = 'Please confirm your password';
+  //   } else if (formData.password !== formData.password2) {
+  //     newErrors.password2 = 'Passwords do not match';
+  //   }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  //   if (!formData.image) {
+  //     newErrors.image = 'Please upload a profile image';
+  //   }
+
+  //   setErrors(newErrors);
+  //   return Object.keys(newErrors).length === 0;
+  // };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
-    }
+    // if (!validateForm()) {
+    //   return;
+    // }
 
     setIsLoading(true);
+    const loadingToast = toast.loading('Creating your account...');
 
     try {
       const submitData = new FormData();
@@ -126,20 +131,28 @@ const Register = () => {
       });
 
       if (response.status === 201) {
+        toast.dismiss(loadingToast);
+        toast.success('Registration successful! Please log in.');
         navigate('/login');
       }
     } catch (error) {
-      if (error.response?.data) {
-        setErrors(error.response.data);
+      toast.dismiss(loadingToast);
+
+      // Check if we have a response with serializer errors
+      if (error.response?.data?.errors) {
+        const serverErrors = error.response.data.errors;
+        
+        // Update form errors state
+        setErrors(serverErrors);
+        toast.error(serverErrors);
       } else {
-        setErrors({
-          general: 'An error occurred during registration. Please try again.'
-        });
+        // Fallback error message
+        toast.error('An error occurred during registration. Please try again.');
       }
     } finally {
       setIsLoading(false);
     }
-  };
+};
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'image', 'is_active')
-        read_only_fields = ('id', 'is_active')
+        read_only_fields = ('id', 'email', 'username')
         
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -23,7 +23,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'id': {'read_only': True},
             'email': {'required': True},
             'username': {'required': True},
-            'image': {'required': False}
+            'image': {'required': True}
         }
         
     def validate(self, data):
