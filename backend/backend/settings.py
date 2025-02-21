@@ -156,10 +156,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    f"http://{HOST_IP}:8002",
-    f"http://{LOCAL_IP}:8002",
-    f"http://{LOCAL_DOMAIN}:8002",
+    f"https://{HOST_IP}:8002",
+    f"https://{LOCAL_IP}:8002",
+    f"https://{LOCAL_DOMAIN}:8002",
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://localhost:8002",
+    # Add other origins as needed
+]
+
+# Cookie settings
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+AUTH_USER_MODEL = 'app.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -171,3 +182,36 @@ REST_FRAMEWORK = {
 JWT_SECRET_KEY = 'django-insecure-%s&3=p1=z(e2om6-g*!d$646wk%*9%-!sw+76_sn^+orycc=!7'
 JWT_ACCESS_TOKEN_LIFETIME = timedelta(hours=1)
 JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=1)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'app': {  # Add logger for your app
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
