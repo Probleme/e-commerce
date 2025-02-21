@@ -46,6 +46,9 @@ INSTALLED_APPS = [
     # 'rest_framework_simplejwt', # JWT token authentication
     # 'rest_framework_simplejwt.token_blacklist',
     'app',
+    'product',
+    'order',
+    'user',
     'corsheaders',
 ]
 
