@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 import jwt
 from datetime import datetime
 import logging
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -22,6 +23,9 @@ class JWTAuthentication(authentication.BaseAuthentication):
 
             if not token:
                 return None
+            
+            if cache.get(f'blacklist_access_{token}'):
+                raise exceptions.AuthenticationFailed('Token is blacklisted')
 
             # Clean up token if it starts with 'Bearer'
             if token.startswith('Bearer '):

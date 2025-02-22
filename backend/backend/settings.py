@@ -47,6 +47,9 @@ INSTALLED_APPS = [
     # 'rest_framework_simplejwt.token_blacklist',
     'app',
     'corsheaders',
+    'oauth2_provider',
+    'social_django',
+    'drf_social_oauth2',
 ]
 
 MIDDLEWARE = [
@@ -56,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -149,29 +153,29 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    f"https://{HOST_IP}:8002",
-    f"https://{LOCAL_IP}:8002",
-    f"https://{LOCAL_DOMAIN}:8002",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://localhost:8002",
-    # Add other origins as needed
-]
+# CORS_ALLOWED_ORIGINS = [
+#     f"https://{HOST_IP}:8002",
+#     f"https://{LOCAL_IP}:8002",
+#     f"https://{LOCAL_DOMAIN}:8002",
+# ]
 
 # Cookie settings
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
 
 AUTH_USER_MODEL = 'app.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'app.authentication.JWTAuthentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+        'drf_social_oauth2.authentication.SocialAuthentication',
     ],
 }
 
@@ -179,6 +183,51 @@ REST_FRAMEWORK = {
 JWT_SECRET_KEY = 'django-insecure-%s&3=p1=z(e2om6-g*!d$646wk%*9%-!sw+76_sn^+orycc=!7'
 JWT_ACCESS_TOKEN_LIFETIME = timedelta(hours=1)
 JWT_REFRESH_TOKEN_LIFETIME = timedelta(days=1)
+
+# OAuth Settings
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '76356682659-fhjbt0o9b6cf085mhd4b4vhpdssglmvu.apps.googleusercontent.com'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['email', 'profile']
+
+SOCIAL_AUTH_GITHUB_KEY = 'Ov23liHht6qmgiI2f2lv'
+SOCIAL_AUTH_GITHUB_SECRET = 'f4002a7fca0beb34a9a16bed66db4234da31fa52'
+SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+
+# Social Auth settings
+SOCIAL_AUTH_USERNAME_IS_FULL_EMAIL = True
+SOCIAL_AUTH_CLEAN_USERNAMES = True
+SOCIAL_AUTH_PROTECTED_USER_FIELDS = ['email']
+
+# OAuth2 settings
+OAUTH2_PROVIDER = {
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600,  # 1 hour
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400,  # 1 day
+    'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore',
+    'SCOPES': {'read': 'Read scope', 'write': 'Write scope'},
+}
+
+# Add authentication backends
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.github.GithubOAuth2',
+    # 'drf_social_oauth2.backends.DjangoOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+# OAuth pipeline settings
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.social_auth.associate_by_email',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    # 'app.pipeline.save_profile_picture',
+    'app.pipeline.custom_pipeline',
+)
 
 LOGGING = {
     'version': 1,
