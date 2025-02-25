@@ -1,3 +1,4 @@
+# Use the official Nginx image as the base image
 FROM nginx:latest
 
 # Switch to root for system updates and installations
@@ -20,6 +21,10 @@ RUN chown -R nginx:nginx /etc/nginx/ssl && \
     chmod 600 /etc/nginx/ssl/private.key && \
     chmod 644 /etc/nginx/ssl/certificate.crt
 
+# Copy nginx configuration file
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port
 EXPOSE 8002
 
 # No need to switch user, let nginx handle it

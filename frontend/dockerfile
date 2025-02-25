@@ -1,15 +1,15 @@
 # Use the official Node.js image as the base image
-FROM node:18-alpine
+FROM node:23-alpine
 
 # Set the working directory
 WORKDIR /app
 
 # Copy the package.json and package-lock.json files
 COPY package*.json ./
-COPY eslint.config.js ./
-COPY vite.config.js ./
-COPY tailwind.config.js ./
-COPY postcss.config.js ./
+# COPY eslint.config.js ./
+# COPY vite.config.js ./
+# COPY tailwind.config.js ./
+# COPY postcss.config.js ./
 
 # Install dependencies
 RUN npm install
@@ -18,7 +18,7 @@ RUN npm install
 COPY . .
 
 # Expose the port the app runs on (default Vite port is 5173)
-EXPOSE 5173
+EXPOSE 3000
 
 # Start the development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

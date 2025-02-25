@@ -7,6 +7,9 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
+import { GitHubCallback } from './components/OAuth/GithubCallback';
+import { GoogleCallback } from './components/OAuth/GoogleCallback';
+import { TwoFactorSetup } from './components/TwoFactorAuth/TwoFactorSetup';
 
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -20,6 +23,16 @@ const App = () => {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/oauth/github/callback" element={<GitHubCallback />} />
+              <Route path="/oauth/google/callback" element={<GoogleCallback />} />
+              <Route
+                path="/2fa/setup"
+                element={
+                  // <AuthLayout>
+                    <TwoFactorSetup />
+                  // </AuthLayout>
+                }
+              />
               <Route
                 path="/"
                 element={
@@ -41,7 +54,6 @@ const App = () => {
             draggable
             pauseOnHover
             theme="light"
-            // Add these for better styling
             limit={3}
             toastStyle={{
               fontSize: '14px',
