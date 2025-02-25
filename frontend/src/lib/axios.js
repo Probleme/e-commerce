@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const baseURL = import.meta.env.VITE_API_URL || 'https://localhost:8002';
 
@@ -58,8 +59,9 @@ axiosInstance.interceptors.response.use(
           {},
           { withCredentials: true }
         );
-        
         if (response.status === 200) {
+          console.log('Refreshed token:', response.data.access);
+          toast.success('Token refreshed');
           processQueue(null);
           return axiosInstance(originalRequest);
         }

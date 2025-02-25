@@ -29,6 +29,9 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     username = models.CharField(max_length=150, unique=True)
     image = models.ImageField(upload_to='users/', null=True, blank=True)
+    two_factor_secret = models.CharField(max_length=32, null=True, blank=True)
+    two_factor_enabled = models.BooleanField(default=False)
+    two_factor_backup_codes = models.JSONField(default=list, blank=True)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']

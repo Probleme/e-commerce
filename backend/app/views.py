@@ -16,10 +16,234 @@ from django.conf import settings
 from django.db import IntegrityError
 from django.contrib.auth import logout as django_logout
 from django.core.cache import cache
+import pyotp
+import qrcode
+import base64
+from io import BytesIO
+import secrets
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+class TwoFactorSetupView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request):
+        """Generate new 2FA secret and QR code"""
+        user = request.user
+        
+        if user.two_factor_enabled:
+            return Response({
+                'error': '2FA is already enabled'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generate new secret
+        secret = pyotp.random_base32()
+        
+        # Generate backup codes
+        backup_codes = [secrets.token_hex(4) for _ in range(8)]
+        
+        # Store secret and backup codes temporarily in session
+        request.session['temp_2fa_secret'] = secret
+        request.session['temp_backup_codes'] = backup_codes
+
+        # Generate QR code
+        totp = pyotp.TOTP(secret)
+        provisioning_uri = totp.provisioning_uri(
+            user.email, 
+            issuer_name="YourApp"
+        )
+
+        # Create QR code
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(provisioning_uri)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert QR code to base64
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        qr_code = base64.b64encode(buffered.getvalue()).decode()
+
+        return Response({
+            'secret': secret,
+            'qr_code': qr_code,
+            'backup_codes': backup_codes
+        })
+
+    def post(self, request):
+        """Verify and enable 2FA"""
+        user = request.user
+        code = request.data.get('code')
+        
+        # Get secret from session
+        secret = request.session.get('temp_2fa_secret')
+        backup_codes = request.session.get('temp_backup_codes')
+
+        if not secret or not code:
+            return Response({
+                'error': 'Invalid setup session'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify code
+        totp = pyotp.TOTP(secret)
+        if totp.verify(code):
+            # Enable 2FA
+            user.two_factor_secret = secret
+            user.two_factor_enabled = True
+            user.two_factor_backup_codes = backup_codes
+            user.save()
+
+            # Clear temporary session data
+            del request.session['temp_2fa_secret']
+            del request.session['temp_backup_codes']
+
+            return Response({
+                'message': '2FA enabled successfully',
+                'backup_codes': backup_codes
+            })
+
+        return Response({
+            'error': 'Invalid verification code'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TwoFactorVerifyView(APIView):
+    """Verify 2FA code during login"""
+    permission_classes = []
+    authentication_classes = []
+
+    def post(self, request):
+        try:
+            user_id = request.data.get('user_id')
+            code = request.data.get('code')
+
+            if not user_id or not code:
+                return Response({
+                    'error': 'User ID and verification code are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if user is in authentication process
+            cache_key = f'2fa_auth_{user_id}'
+            if not cache.get(cache_key):
+                return Response({
+                    'error': 'Invalid or expired authentication session'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response({
+                    'error': 'Invalid user'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if not user.two_factor_enabled:
+                return Response({
+                    'error': '2FA is not enabled for this user'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if it's a backup code
+            if code in user.two_factor_backup_codes:
+                # Remove used backup code
+                user.two_factor_backup_codes.remove(code)
+                user.save()
+                
+                # Clear the 2FA session
+                cache.delete(cache_key)
+
+                # Generate tokens and complete login
+                access_token = generate_access_token(user)
+                refresh_token = generate_refresh_token(user)
+                
+                response = Response({
+                    'message': 'Login successful',
+                    'user': UserSerializer(user).data
+                })
+                
+                response.set_cookie(
+                    'access_token',
+                    access_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=3600
+                )
+                response.set_cookie(
+                    'refresh_token',
+                    refresh_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=3600 * 24
+                )
+                return response
+
+            # Verify TOTP code
+            totp = pyotp.TOTP(user.two_factor_secret)
+            if totp.verify(code):
+                # Clear the 2FA session
+                cache.delete(cache_key)
+
+                # Generate tokens and complete login
+                access_token = generate_access_token(user)
+                refresh_token = generate_refresh_token(user)
+                
+                response = Response({
+                    'message': 'Login successful',
+                    'user': UserSerializer(user).data
+                })
+                
+                response.set_cookie(
+                    'access_token',
+                    access_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=3600
+                )
+                response.set_cookie(
+                    'refresh_token',
+                    refresh_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=3600 * 24
+                )
+                return response
+
+            return Response({
+                'error': 'Invalid verification code'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({
+                'error': 'An error occurred during verification'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class TwoFactorDisableView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        """Disable 2FA"""
+        user = request.user
+        code = request.data.get('code')
+
+        if not user.two_factor_enabled:
+            return Response({
+                'error': '2FA is not enabled'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify code before disabling
+        totp = pyotp.TOTP(user.two_factor_secret)
+        if totp.verify(code):
+            user.two_factor_secret = None
+            user.two_factor_enabled = False
+            user.two_factor_backup_codes = []
+            user.save()
+            return Response({'message': '2FA disabled successfully'})
+
+        return Response({
+            'error': 'Invalid verification code'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 class GoogleAuthView(APIView):
     permission_classes = []
@@ -408,36 +632,51 @@ class LoginView(APIView):
             user = authenticate(email=email, password=password)
             
             if user is not None:
-                if user.is_active:
-                    access_token = generate_access_token(user)
-                    refresh_token = generate_refresh_token(user)
-                    response = Response({
-                        'message': 'Login successful',
-                        'user': UserSerializer(user).data
-                    })
-                    response.set_cookie(
-                        'access_token',
-                        access_token,
-                        httponly=True,
-                        samesite='Lax',
-                        max_age=3600  # 1 hour
-                    )
-                    response.set_cookie(
-                        'refresh_token',
-                        refresh_token,
-                        httponly=True,
-                        samesite='Lax',
-                        max_age=3600 * 24  # 1 day
-                    )
-                    return response
-                else:
+                if not user.is_active:
                     return Response({
                         'error': 'Account is disabled'
                     }, status=status.HTTP_401_UNAUTHORIZED)
-            else:
-                return Response({
-                    'error': 'Invalid email or password'
-                }, status=status.HTTP_401_UNAUTHORIZED)
+
+                # Check if user has 2FA enabled
+                if user.two_factor_enabled:
+                    # Store authentication status in cache
+                    cache_key = f'2fa_auth_{user.id}'
+                    cache.set(cache_key, True, timeout=300)  # 5 minutes timeout
+                    
+                    return Response({
+                        'requires_2fa': True,
+                        'user_id': user.id,
+                        'message': 'Please enter your 2FA code'
+                    })
+
+                # If no 2FA, proceed with normal login
+                access_token = generate_access_token(user)
+                refresh_token = generate_refresh_token(user)
+                
+                response = Response({
+                    'message': 'Login successful',
+                    'user': UserSerializer(user).data
+                })
+                
+                response.set_cookie(
+                    'access_token',
+                    access_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=3600  # 1 hour
+                )
+                response.set_cookie(
+                    'refresh_token',
+                    refresh_token,
+                    httponly=True,
+                    samesite='Lax',
+                    max_age=3600 * 24  # 1 day
+                )
+                return response
+            
+            return Response({
+                'error': 'Invalid email or password'
+            }, status=status.HTTP_401_UNAUTHORIZED)
                 
         except Exception as e:
             return Response({

@@ -9,6 +9,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [show2FA, setShow2FA] = useState(false);
+  const [tempUserId, setTempUserId] = useState(null);
 
   const GITHUB_CLIENT_ID = 'Ov23liHht6qmgiI2f2lv';
   const GOOGLE_CLIENT_ID = '76356682659-fhjbt0o9b6cf085mhd4b4vhpdssglmvu.apps.googleusercontent.com';
@@ -57,6 +59,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await axios.post('/api/login/', { email, password });
+
+      // Check if 2FA is required
+      if (response.data.requires_2fa) {
+        setTempUserId(response.data.user_id);
+        setShow2FA(true);
+        return;
+      }
+
       setUser(response.data.user);
       
       // Set authorization header
@@ -66,11 +76,32 @@ export const AuthProvider = ({ children }) => {
 
       await checkAuth();
 
-      toast.success('Login successful');
-      navigate('/');
+      // toast.success('Login successful');
+      // navigate('/');
       return response.data;
     } catch (error) {
       toast.error(error.response?.data?.error || 'Login failed');
+      throw error;
+    }
+  };
+
+  const verify2FA = async (code) => {
+    try {
+      const response = await axios.post('/api/2fa/verify/', {
+        user_id: tempUserId,
+        code
+      });
+
+      setUser(response.data.user);
+      setShow2FA(false);
+      setTempUserId(null);
+
+      await checkAuth();
+
+      toast.success('Login successful');
+      navigate('/');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Invalid verification code');
       throw error;
     }
   };
@@ -129,6 +160,10 @@ export const AuthProvider = ({ children }) => {
         loginWithGoogle,
         handleOAuthCallback,
         isAuthenticated: !!user,
+        show2FA,
+        setShow2FA,
+        verify2FA,
+        tempUserId,
       }}
     >
       {children}

@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import Home from './pages/Home';
 import { GitHubCallback } from './components/OAuth/GithubCallback';
 import { GoogleCallback } from './components/OAuth/GoogleCallback';
+import { TwoFactorSetup } from './components/TwoFactorAuth/TwoFactorSetup';
 
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -24,6 +25,14 @@ const App = () => {
               <Route path="/register" element={<Register />} />
               <Route path="/oauth/github/callback" element={<GitHubCallback />} />
               <Route path="/oauth/google/callback" element={<GoogleCallback />} />
+              <Route
+                path="/2fa/setup"
+                element={
+                  // <AuthLayout>
+                    <TwoFactorSetup />
+                  // </AuthLayout>
+                }
+              />
               <Route
                 path="/"
                 element={
